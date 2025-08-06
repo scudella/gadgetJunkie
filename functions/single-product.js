@@ -1,38 +1,43 @@
-const dotenv = require('dotenv');
-dotenv.config();
+const dotenv = require('dotenv')
+dotenv.config()
 
-const Airtable = require('airtable-node');
+const Airtable = require('airtable')
 
-const airtable = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY })
-  .base(process.env.AIRTABLE_BASE)
-  .table(process.env.AIRTABLE_TABLE);
+const base = new Airtable({apiKey: process.env.AIRTABLE_PA_TOKEN}).base(
+  process.env.AIRTABLE_BASE
+)
 
-exports.handler = async (event, context, cb) => {
-  const { id } = event.queryStringParameters;
-  if (id) {
-    try {
-      let product = await airtable.retrieve(id);
-      if (product.error) {
-        return {
-          statusCode: 404,
-          body: `No product with id : ${id}`,
-        };
+exports.handler = async (event, context) => {
+  try {
+    const {id} = event.queryStringParameters
+    if (!id) {
+      return {
+        statusCode: 400,
+        body: 'Missing product id',
       }
-      product = { id: product.id, ...product.fields };
+    }
+
+    const record = await base(process.env.AIRTABLE_TABLE).find(id)
+
+    const product = {id: record.id, ...record.fields}
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(product),
+    }
+  } catch (error) {
+    console.error('Error fetching record:', error)
+
+    if (error.statusCode === 404) {
       return {
-        statusCode: 200,
-        body: JSON.stringify(product),
-      };
-    } catch (error) {
-      console.log(error);
-      return {
-        statusCode: 500,
-        body: 'Server error',
-      };
+        statusCode: 404,
+        body: 'Record not found',
+      }
+    }
+
+    return {
+      statusCode: 500,
+      body: 'There was an error',
     }
   }
-  return {
-    statusCode: 400,
-    body: 'Please provide product id',
-  };
-};
+}
